@@ -37,7 +37,7 @@ export async function processarComandos() {
   if (!msg || msg.chat.id != CHAT_ID) return;
 
   const texto = msg.text;
-  const gastos = fs.readJSONSync(DB);
+  const gastos = fs.existsSync(DB) ? fs.readJSONSync(DB) : [];
 
   if (texto === "/menu") {
     await send(`
