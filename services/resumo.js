@@ -11,24 +11,23 @@ export function resumo() {
   }
 
   const gastos = fs.readJSONSync(DB);
-
-  if (gastos.length === 0) {
+  if (!gastos.length) {
     console.log("Nenhum gasto registrado.");
     return;
   }
 
-  const tabela = new Table({
+  const table = new Table({
     head: ["Descrição", "Categoria", "Valor (R$)"]
   });
 
   gastos.forEach(g => {
-    tabela.push([
+    table.push([
       g.descricao,
       g.categoria,
-      Number.isFinite(g.valor) ? g.valor.toFixed(2) : "ERRO"
+      g.valor.toFixed(2)
     ]);
   });
 
-  console.log(tabela.toString());
+  console.log(table.toString());
   console.log(`💰 Total geral: R$ ${total(gastos).toFixed(2)}`);
 }

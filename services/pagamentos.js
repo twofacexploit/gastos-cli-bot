@@ -1,13 +1,30 @@
 import fs from "fs-extra";
-import { agrupar } from "../utils/calculos.js";
+import Table from "cli-table3";
+import { porPagamento } from "../utils/calculos.js";
 
 const DB = "./database/gastos.json";
 
-export function porPagamento() {
-  const gastos = fs.readJSONSync(DB);
-  const dados = agrupar(gastos, "formaPagamento");
-
-  for (const f in dados) {
-    console.log(`${f}: R$ ${dados[f].toFixed(2)}`);
+export function porPagamentoCLI() {
+  if (!fs.existsSync(DB)) {
+    console.log("Nenhum gasto registrado.");
+    return;
   }
+
+  const gastos = fs.readJSONSync(DB);
+  if (!gastos.length) {
+    console.log("Nenhum gasto registrado.");
+    return;
+  }
+
+  const pagamentos = porPagamento(gastos);
+
+  const table = new Table({
+    head: ["Forma de Pagamento", "Total (R$)"]
+  });
+
+  Object.entries(pagamentos).forEach(([forma, valor]) => {
+    table.push([forma, valor.toFixed(2)]);
+  });
+
+  console.log(table.toString());
 }

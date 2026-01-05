@@ -1,15 +1,30 @@
 import fs from "fs-extra";
-import { agrupar, total } from "../utils/calculos.js";
+import Table from "cli-table3";
+import { porCategoria } from "../utils/calculos.js";
 
 const DB = "./database/gastos.json";
 
-export function porCategoria() {
-  const gastos = fs.readJSONSync(DB);
-  const totalGeral = total(gastos);
-  const cat = agrupar(gastos, "categoria");
-
-  for (const c in cat) {
-    const pct = (cat[c] / totalGeral) * 100;
-    console.log(`${c}: R$ ${cat[c].toFixed(2)} (${pct.toFixed(1)}%)`);
+export function porCategoriaCLI() {
+  if (!fs.existsSync(DB)) {
+    console.log("Nenhum gasto registrado.");
+    return;
   }
+
+  const gastos = fs.readJSONSync(DB);
+  if (!gastos.length) {
+    console.log("Nenhum gasto registrado.");
+    return;
+  }
+
+  const categorias = porCategoria(gastos);
+
+  const table = new Table({
+    head: ["Categoria", "Total (R$)"]
+  });
+
+  Object.entries(categorias).forEach(([cat, valor]) => {
+    table.push([cat, valor.toFixed(2)]);
+  });
+
+  console.log(table.toString());
 }

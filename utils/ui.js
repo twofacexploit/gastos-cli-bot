@@ -1,32 +1,21 @@
 import inquirer from "inquirer";
-import chalk from "chalk";
 
+/* ================= LIMPAR TELA ================= */
 export async function limparTela() {
   console.clear();
-
-  console.log(
-    chalk.hex("#f5c16c")(`
-╔╦╗╦ ╦╔═╗╔═╗╔═╗╔═╗╔═╗
- ║ ║║║║ ║╠╣ ╠═╣║  ║╣ 
- ╩ ╚╩╝╚═╝╚  ╩ ╩╚═╝╚═╝
-`)
-  );
-
-  console.log(chalk.cyan("Gastos CLI"));
-  console.log(chalk.gray("v1.0.0\n"));
 }
 
+/* ================= MENU DE RETORNO ================= */
 export async function menuRetorno() {
-  const { acao } = await inquirer.prompt({
+  await inquirer.prompt({
     type: "list",
-    name: "acao",
-    message: chalk.white("O que deseja fazer agora?"),
+    name: "voltar",
+    message: "O que deseja fazer?",
     choices: [
-      "🔙 Voltar ao menu principal",
-      "➕ Adicionar novo gasto",
+      "⬅️ Voltar ao menu principal",
       "❌ Sair"
     ]
   });
 
-  return acao;
+  // NÃO limpa a tela aqui
 }

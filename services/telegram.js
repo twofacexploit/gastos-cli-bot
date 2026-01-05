@@ -1,91 +1,120 @@
 import fetch from "node-fetch";
-import fs from "fs-extra";
-import dayjs from "dayjs";
-import "dotenv/config";
+import comandos from "./commands/index.js";
+
+/* ================= CONFIG ================= */
 
 const TOKEN = process.env.TELEGRAM_TOKEN;
-const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-const DB = "./database/gastos.json";
+const CHAT_ID = String(process.env.TELEGRAM_CHAT_ID);
 
-let LAST_UPDATE_ID = 0;
+if (!TOKEN || !CHAT_ID) {
+  throw new Error("❌ TELEGRAM_TOKEN ou TELEGRAM_CHAT_ID não definidos");
+}
 
 const api = method =>
   `https://api.telegram.org/bot${TOKEN}/${method}`;
 
-async function send(text) {
+/* ================= STATE ================= */
+
+let LAST_UPDATE_ID = 0;
+
+/* ================= SEND ================= */
+
+async function enviarMensagem(texto) {
   await fetch(api("sendMessage"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: CHAT_ID,
-      text,
+      text: texto,
       parse_mode: "Markdown"
     })
   });
 }
 
+/* ================= ROUTER ================= */
+
 export async function processarComandos() {
-  const res = await fetch(
-    api(`getUpdates?offset=${LAST_UPDATE_ID + 1}&timeout=10`)
-  );
-  const data = await res.json();
+  try {
+    const res = await fetch(
+      api(`getUpdates?offset=${LAST_UPDATE_ID + 1}&timeout=10`)
+    );
 
-  if (!data.ok || !data.result.length) return;
+    const data = await res.json();
 
-  for (const update of data.result) {
-    LAST_UPDATE_ID = update.update_id;
+    if (!data.ok || !data.result || data.result.length === 0) return;
 
-    if (!update.message) continue;
-    if (update.message.chat.id != CHAT_ID) continue;
+    for (const update of data.result) {
+      LAST_UPDATE_ID = update.update_id;
 
-    const texto = update.message.text;
-    const gastos = fs.existsSync(DB)
-      ? fs.readJSONSync(DB)
-      : [];
+      if (!update.message) continue;
+      if (String(update.message.chat.id) !== CHAT_ID) continue;
 
-    /* ===== COMANDOS ===== */
+      const texto = update.message.text?.trim();
+      if (!texto) continue;
 
-    if (texto === "/menu") {
-      await send(`
-📌 *MENU GASTOS CLI*
+      /* ================= HELP ================= */
 
-/resumo – Resumo geral
-/mes – Gastos do mês
+      if (texto === "/start" || texto === "/ajuda") {
+        await enviarMensagem(
+`📌 *Gastos CLI – Comandos Disponíveis*
+
+/menu – Menu principal
+/resumo – Resumo do mês
+/saldo – Saldo restante
+/percentual – % do limite usado
+/orcamento_diario – Quanto pode gastar por dia
 /hoje – Gastos de hoje
 /semana – Últimos 7 dias
-`);
+/mes – Total do mês
+/categorias – Gastos por categoria
+/top5 – Maiores gastos
+/ultimo_gasto – Último lançamento
+/status – Status do bot
+
+Digite o comando desejado 👇`
+        );
+        continue;
+      }
+
+      /* ================= MENU ================= */
+
+      if (texto === "/menu") {
+        await enviarMensagem(
+`📊 *MENU – GASTOS CLI*
+
+💰 /saldo
+📈 /percentual
+📅 /orcamento_diario
+📆 /hoje
+📊 /semana
+📅 /mes
+📂 /categorias
+🔥 /top5
+🧾 /ultimo_gasto
+⚙️ /status
+❓ /ajuda`
+        );
+        continue;
+      }
+
+      /* ================= COMMAND DISPATCH ================= */
+
+      const comando = texto.split(" ")[0];
+
+      if (!comandos[comando]) {
+        await enviarMensagem(
+          "❌ Comando não reconhecido.\nUse /menu para ver as opções."
+        );
+        continue;
+      }
+
+      const resposta = await comandos[comando](texto);
+
+      if (resposta) {
+        await enviarMensagem(resposta);
+      }
     }
-
-    if (texto === "/resumo") {
-      const total = gastos.reduce((s, g) => s + g.valor, 0);
-      await send(`💰 *Total gasto:* R$ ${total.toFixed(2)}`);
-    }
-
-    if (texto === "/mes") {
-      const mes = dayjs().month();
-      const total = gastos
-        .filter(g => dayjs(g.data).month() === mes)
-        .reduce((s, g) => s + g.valor, 0);
-
-      await send(`📅 *Total do mês:* R$ ${total.toFixed(2)}`);
-    }
-
-    if (texto === "/hoje") {
-      const hoje = dayjs().format("YYYY-MM-DD");
-      const total = gastos
-        .filter(g => g.data === hoje)
-        .reduce((s, g) => s + g.valor, 0);
-
-      await send(`📆 *Gastos hoje:* R$ ${total.toFixed(2)}`);
-    }
-
-    if (texto === "/semana") {
-      const inicio = dayjs().subtract(7, "day");
-      const total = gastos
-        .filter(g => dayjs(g.data).isAfter(inicio))
-        .reduce((s, g) => s + g.valor, 0);
-
-      await send(`📊 *Últimos 7 dias:* R$ ${total.toFixed(2)}`);
-    }
+  } catch (err) {
+    console.error("Erro no bot Telegram:", err.message);
   }
 }
