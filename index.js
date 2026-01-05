@@ -1,8 +1,6 @@
 import inquirer from "inquirer";
 import chalk from "chalk";
 
-import { processarComandos } from "./services/telegram.js";
-import { iniciarCron } from "./services/cron.js";
 import { adicionarGasto } from "./services/addGasto.js";
 import { listar } from "./services/listar.js";
 import { resumo } from "./services/resumo.js";
@@ -20,7 +18,7 @@ async function menuPrincipal() {
   const { opcao } = await inquirer.prompt({
     type: "list",
     name: "opcao",
-    message: chalk.white("Selecione uma opção:"),
+    message: "Selecione uma opção:",
     choices: [
       "➕ Adicionar gasto",
       "📄 Listar lançamentos",
@@ -35,13 +33,9 @@ async function menuPrincipal() {
     ]
   });
 
-  await executarOpcao(opcao);
-}
+  if (opcao === "❌ Sair") process.exit();
 
-async function executarOpcao(opcao) {
-  await limparTela();
-
-  const acoes = {
+  const map = {
     "➕ Adicionar gasto": adicionarGasto,
     "📄 Listar lançamentos": listar,
     "📊 Resumo geral": resumo,
@@ -53,20 +47,9 @@ async function executarOpcao(opcao) {
     "🗑️ Resetar mês": resetar
   };
 
-  if (opcao === "❌ Sair") process.exit();
-
-  await acoes[opcao]();
-
-  const retorno = await menuRetorno();
-
-  if (retorno.startsWith("🔙")) return menuPrincipal();
-  if (retorno.startsWith("➕")) {
-    await limparTela();
-    await adicionarGasto();
-    return menuPrincipal();
-  }
-
-  process.exit();
+  await map[opcao]();
+  await menuRetorno();
+  menuPrincipal();
 }
 
 menuPrincipal();

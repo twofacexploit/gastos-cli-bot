@@ -1,32 +1,44 @@
-import inquirer from "inquirer";
 import fs from "fs-extra";
+import inquirer from "inquirer";
 import dayjs from "dayjs";
-import { enviarTelegram } from "./telegram.js";
 
-const DB = "./database/gastos.json";
+const DB_DIR = "./database";
+const DB_FILE = "./database/gastos.json";
 
-function normalizarValor(valor) {
-  return Number(
-    valor
-      .replace("R$", "")
-      .replace(/\./g, "")
-      .replace(",", ".")
-      .trim()
-  );
+/* ================== GARANTIR DATABASE ================== */
+function garantirDB() {
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR);
+  }
+
+  if (!fs.existsSync(DB_FILE)) {
+    fs.writeJSONSync(DB_FILE, []);
+  }
 }
 
+/* ================== ADICIONAR GASTO ================== */
 export async function adicionarGasto() {
-  const g = await inquirer.prompt([
-    { name: "descricao", message: "Descrição:" },
+  garantirDB();
+
+  const respostas = await inquirer.prompt([
     {
+      type: "input",
+      name: "descricao",
+      message: "Descrição do gasto:",
+      validate: v => v ? true : "Informe uma descrição"
+    },
+    {
+      type: "input",
       name: "valor",
       message: "Valor (R$):",
-      validate: v =>
-        isNaN(normalizarValor(v)) ? "Digite um valor válido" : true
+      validate: v => !isNaN(v) && Number(v) > 0
+        ? true
+        : "Informe um valor válido"
     },
     {
       type: "list",
       name: "categoria",
+      message: "Categoria:",
       choices: [
         "Cartão de Crédito",
         "Contas Fixas",
@@ -40,36 +52,25 @@ export async function adicionarGasto() {
       ]
     },
     {
-      type: "list",
+      type: "input",
       name: "formaPagamento",
-      choices: ["Crédito", "Débito", "PIX", "Dinheiro"]
+      message: "Forma de pagamento (PIX, Débito, Crédito, Dinheiro):",
+      default: "PIX"
     }
   ]);
 
   const gasto = {
     data: dayjs().format("YYYY-MM-DD"),
-    descricao: g.descricao,
-    categoria: g.categoria,
-    formaPagamento: g.formaPagamento,
-    valor: normalizarValor(g.valor),
-    tipo: ["Contas Fixas", "Assinaturas"].includes(g.categoria)
-      ? "Fixo"
-      : "Variável"
+    descricao: respostas.descricao,
+    categoria: respostas.categoria,
+    formaPagamento: respostas.formaPagamento,
+    valor: Number(respostas.valor),
+    tipo: respostas.categoria === "Contas Fixas" ? "Fixo" : "Variável"
   };
 
-  const dados = fs.existsSync(DB) ? fs.readJSONSync(DB) : [];
-  dados.push(gasto);
-  fs.writeJSONSync(DB, dados, { spaces: 2 });
+  const gastos = fs.readJSONSync(DB_FILE);
+  gastos.push(gasto);
+  fs.writeJSONSync(DB_FILE, gastos, { spaces: 2 });
 
   console.log("\n✅ Gasto registrado com sucesso!\n");
-
-  await enviarTelegram(`
-💸 *Novo gasto registrado*
-
-📌 *Descrição:* ${gasto.descricao}
-📂 *Categoria:* ${gasto.categoria}
-💳 *Pagamento:* ${gasto.formaPagamento}
-💰 *Valor:* R$ ${gasto.valor.toFixed(2)}
-📅 *Data:* ${gasto.data}
-`);
 }
